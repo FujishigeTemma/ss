@@ -158,13 +158,12 @@ pub fn build(b: *std.Build) void {
     const commit = b.option([]const u8, "commit", "Source commit reported by `ss --version`") orelse detectGitCommit(b) orelse "unknown";
     const uncommitted_changes = detectUncommittedChanges(b);
     const source_stdlib_dir = b.pathFromRoot("stdlib");
-    const installed_stdlib_dir = b.pathJoin(&.{ b.install_path, installed_stdlib_subdir });
     const build_options = b.addOptions();
     build_options.addOption([]const u8, "version", version);
     build_options.addOption([]const u8, "commit", commit);
     build_options.addOption([]const u8, "uncommitted_changes", uncommitted_changes);
     build_options.addOption([]const u8, "source_stdlib_dir", source_stdlib_dir);
-    build_options.addOption([]const u8, "installed_stdlib_dir", installed_stdlib_dir);
+    build_options.addOption([]const u8, "installed_stdlib_subdir", installed_stdlib_subdir);
     build_options.addOption([]const u8, "tree_sitter_cache_subdir", tree_sitter_cache_subdir);
     const ss_highlight_query = b.build_root.handle.readFileAlloc(b.graph.io, "editor/tree-sitter-ss/queries/highlights.scm", b.allocator, .limited(64 * 1024)) catch
         @panic("editor/tree-sitter-ss/queries/highlights.scm is missing.");
