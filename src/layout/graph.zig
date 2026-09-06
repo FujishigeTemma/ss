@@ -202,6 +202,8 @@ pub const PageLayoutGraph = struct {
     allocator: std.mem.Allocator,
     page_id: NodeId,
     child_ids: []NodeId,
+    flow_root_ids: []NodeId,
+    overlay_root_ids: []NodeId,
     constraints: []Constraint,
     horizontal_constraints: []Constraint,
     vertical_constraints: []Constraint,
@@ -220,6 +222,10 @@ pub const PageLayoutGraph = struct {
         try appendImplicitLayoutNodes(allocator, state, page_id, &child_ids_list);
         const child_ids = try child_ids_list.toOwnedSlice(allocator);
         errdefer allocator.free(child_ids);
+        const flow_root_ids = try allocator.dupe(NodeId, state.flowRootsOf(page_id));
+        errdefer allocator.free(flow_root_ids);
+        const overlay_root_ids = try allocator.dupe(NodeId, state.overlayRootsOf(page_id));
+        errdefer allocator.free(overlay_root_ids);
 
         var index_by_node = std.AutoHashMap(NodeId, usize).init(allocator);
         errdefer index_by_node.deinit();
@@ -279,6 +285,8 @@ pub const PageLayoutGraph = struct {
             .allocator = allocator,
             .page_id = page_id,
             .child_ids = child_ids,
+            .flow_root_ids = flow_root_ids,
+            .overlay_root_ids = overlay_root_ids,
             .constraints = constraints,
             .horizontal_constraints = horizontal_constraints,
             .vertical_constraints = vertical_constraints,
@@ -293,6 +301,8 @@ pub const PageLayoutGraph = struct {
     pub fn deinit(self: *PageLayoutGraph) void {
         self.index_by_node.deinit();
         self.allocator.free(self.child_ids);
+        self.allocator.free(self.flow_root_ids);
+        self.allocator.free(self.overlay_root_ids);
         self.allocator.free(self.constraints);
         self.allocator.free(self.horizontal_constraints);
         self.allocator.free(self.vertical_constraints);

@@ -37,7 +37,16 @@ fn solveDocumentStateWithOptions(state: *core.DocumentState, trace_path: ?[]cons
 }
 
 fn expectFloat(expected: f32, actual: f32) !void {
-    try testing.expectApproxEqAbs(expected, actual, 0.0001);
+    try testing.expectApproxEqAbs(expected, actual, graph.ConstraintTolerance);
+}
+
+fn expectFrame(expected: model.Frame, actual: model.Frame) !void {
+    try expectFloat(expected.x, actual.x);
+    try expectFloat(expected.y, actual.y);
+    try expectFloat(expected.width, actual.width);
+    try expectFloat(expected.height, actual.height);
+    try testing.expectEqual(expected.x_set, actual.x_set);
+    try testing.expectEqual(expected.y_set, actual.y_set);
 }
 
 fn expectColor(expected_r: f32, expected_g: f32, expected_b: f32, actual: core.render_policy.Color) !void {
@@ -745,6 +754,57 @@ test "layout solver: page-dependent group children receive local vertical fallba
     try testing.expect(!state.hasConstraintFailures());
 }
 
+test "layout solver: an independently positioned overlay does not affect page flow" {
+    var baseline = try initEmptyDocumentState();
+    defer baseline.deinit();
+
+    const baseline_page = try baseline.addPage("Page");
+    const baseline_title = try baseline.createObjectWithOrigin("title", null, .text, .text, "Title", null);
+    const baseline_rule = try baseline.createObjectWithOrigin("rule", null, .text, .text, "", null);
+    const baseline_head = try baseline.createGroupWithOrigin(&.{ baseline_title, baseline_rule }, "head");
+    const baseline_body = try baseline.createObjectWithOrigin("body", null, .text, .text, "Body", null);
+    try baseline.placeObjectOnPage(baseline_page, baseline_head);
+    try baseline.placeObjectOnPage(baseline_page, baseline_body);
+    try setLayoutLineHeight(&baseline, baseline_title, "44");
+    try setLayoutLineHeight(&baseline, baseline_rule, "2");
+    try setLayoutSpacingAfter(&baseline, baseline_rule, "48");
+    try setLayoutLineHeight(&baseline, baseline_body, "70");
+    try baseline.addAnchorConstraint(baseline_title, .top, .{ .page = .top }, -56, "title-top");
+    try baseline.addAnchorConstraint(baseline_rule, .top, .{ .node = .{ .node_id = baseline_title, .anchor = .bottom } }, -14, "rule-below-title");
+    try solveDocumentState(&baseline);
+
+    var decorated = try initEmptyDocumentState();
+    defer decorated.deinit();
+
+    const decorated_page = try decorated.addPage("Page");
+    const page_number = try decorated.createObjectWithOrigin("pageno", null, .text, .text, "1", null);
+    try decorated.placeOverlayObjectOnPage(decorated_page, page_number);
+    try setLayoutLineHeight(&decorated, page_number, "16");
+    try setLayoutSpacingAfter(&decorated, page_number, "0");
+    try decorated.addAnchorConstraint(page_number, .bottom, .{ .page = .bottom }, 20, "pageno-bottom");
+
+    const decorated_title = try decorated.createObjectWithOrigin("title", null, .text, .text, "Title", null);
+    const decorated_rule = try decorated.createObjectWithOrigin("rule", null, .text, .text, "", null);
+    const decorated_head = try decorated.createGroupWithOrigin(&.{ decorated_title, decorated_rule }, "head");
+    const decorated_body = try decorated.createObjectWithOrigin("body", null, .text, .text, "Body", null);
+    try decorated.placeObjectOnPage(decorated_page, decorated_head);
+    try decorated.placeObjectOnPage(decorated_page, decorated_body);
+    try setLayoutLineHeight(&decorated, decorated_title, "44");
+    try setLayoutLineHeight(&decorated, decorated_rule, "2");
+    try setLayoutSpacingAfter(&decorated, decorated_rule, "48");
+    try setLayoutLineHeight(&decorated, decorated_body, "70");
+    try decorated.addAnchorConstraint(decorated_title, .top, .{ .page = .top }, -56, "title-top");
+    try decorated.addAnchorConstraint(decorated_rule, .top, .{ .node = .{ .node_id = decorated_title, .anchor = .bottom } }, -14, "rule-below-title");
+    try solveDocumentState(&decorated);
+
+    try testing.expectEqualSlices(model.NodeId, &.{ decorated_head, decorated_body }, decorated.flowRootsOf(decorated_page));
+    try expectFrame(baseline.getNode(baseline_title).?.frame, decorated.getNode(decorated_title).?.frame);
+    try expectFrame(baseline.getNode(baseline_rule).?.frame, decorated.getNode(decorated_rule).?.frame);
+    try expectFrame(baseline.getNode(baseline_body).?.frame, decorated.getNode(decorated_body).?.frame);
+    try expectFloat(20, graph.anchorValue(decorated.getNode(page_number).?.frame, .bottom));
+    try testing.expect(!decorated.hasConstraintFailures());
+}
+
 test "layout solver: page-dependent group children before fixed anchors receive fallback" {
     var state = try initEmptyDocumentState();
     defer state.deinit();
@@ -1090,7 +1150,8 @@ test "layout solver: document centered vflow is not shadowed by page default pol
     try setLayoutCenterOffset(&state, state.document_id, "40");
 
     const page = try state.addPage("Page");
-    const pageno = try state.makeObject(page, "pageno", null, .text, .text, "1");
+    const pageno = try state.createObjectWithOrigin("pageno", null, .text, .text, "1", null);
+    try state.placeOverlayObjectOnPage(page, pageno);
     const title = try state.makeObject(page, "title", null, .text, .text, "Title");
     const subtitle = try state.makeObject(page, "subtitle", null, .text, .text, "Subtitle");
 

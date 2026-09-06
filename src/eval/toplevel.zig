@@ -1230,6 +1230,10 @@ const BuiltinContext = struct {
         try self.state.placeObjectOnPage(page_id, object_id);
     }
 
+    pub fn placeOverlayObjectOnPage(self: *BuiltinContext, page_id: core.NodeId, object_id: core.NodeId) !void {
+        try self.state.placeOverlayObjectOnPage(page_id, object_id);
+    }
+
     pub fn setNodeFieldValue(self: *BuiltinContext, object_id: core.NodeId, key: []const u8, value: core.Value) !void {
         self.state.setNodeFieldValue(object_id, key, value) catch |err| switch (err) {
             error.DuplicatePropertyDefinition => {

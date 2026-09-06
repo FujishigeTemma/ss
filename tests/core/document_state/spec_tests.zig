@@ -154,6 +154,28 @@ test "document state spec: indirect group containment does not assign a page unt
     try testing.expectEqual(page, state.layoutPageOf(child).?);
 }
 
+test "document state spec: page flow records placement roots without flattening groups or overlays" {
+    var state = try initEmptyDocumentState();
+    defer state.deinit();
+
+    const page = try state.addPage("Page");
+    const first_child = try state.createObjectWithOrigin("first", null, .text, .text, "First", null);
+    const second_child = try state.createObjectWithOrigin("second", null, .text, .text, "Second", null);
+    const group = try state.createGroupWithOrigin(&.{ first_child, second_child }, null);
+    const overlay = try state.createObjectWithOrigin("overlay", null, .text, .text, "Overlay", null);
+
+    try state.placeObjectOnPage(page, group);
+    try state.placeOverlayObjectOnPage(page, overlay);
+    try state.connectGeneratedReturnObjects(overlay, state.nodeCount(), "overlay-return");
+
+    const flow_roots = state.flowRootsOf(page);
+    try testing.expectEqualSlices(core.NodeId, &.{group}, flow_roots);
+    try testing.expectEqualSlices(core.NodeId, &.{overlay}, state.overlayRootsOf(page));
+
+    const page_objects = state.childrenOf(page).?;
+    try testing.expectEqualSlices(core.NodeId, &.{ group, first_child, second_child, overlay }, page_objects);
+}
+
 test "document state spec: page-local validation reports cross-page constraints" {
     var state = try initEmptyDocumentState();
     defer state.deinit();

@@ -487,6 +487,10 @@ fn place!(obj: Object) -> Object
   return objects::place!(obj)
 end
 
+fn place_overlay!(obj: Object) -> Object
+  return objects::place_overlay!(obj)
+end
+
 fn/! txt_obj(text_value: String, role_name: String) -> Object
   return objects::txt_obj(text_value, role_name)
 end

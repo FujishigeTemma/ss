@@ -509,13 +509,22 @@ fn addTestStep(
         import("language_type", modules.language_type),
         import("registry", registry_mod),
     }, true);
-    addModuleTest(ctx, test_step, "tests/core/document_state/spec_tests.zig", &.{
+    const document_state_spec_mod = createModule(ctx, "tests/core/document_state/spec_tests.zig", &.{
         import("core", modules.core),
         import("utils", modules.utils),
         import("ast", modules.ast),
         import("model", modules.model),
         import("language_type", modules.language_type),
     }, true);
+    const document_state_spec_tests = addTestArtifact(ctx, document_state_spec_mod);
+    const run_document_state_spec_tests = b.addRunArtifact(document_state_spec_tests);
+    test_step.dependOn(&run_document_state_spec_tests.step);
+    addFocusedTestStep(
+        b,
+        "test-document-state",
+        "Run focused document state tests",
+        &run_document_state_spec_tests.step,
+    );
     addModuleTest(ctx, test_step, "tests/core/markdown/spec_tests.zig", &.{
         import("core", modules.core),
     }, true);

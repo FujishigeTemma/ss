@@ -171,26 +171,22 @@ fn buildTopFlowVerticalFallbackConstraints(state: anytype, workspace: *const gra
     var current_offset: f32 = Defaults.flow_top - Defaults.height;
     var current_top_value: f32 = Defaults.flow_top;
 
-    for (seeded.workspace.graph.child_ids, seeded.workspace.states, 0..) |child_id, axis_state, index| {
-        const node = state.getNode(child_id) orelse return error.UnknownNode;
-        if (groups.isGroupNode(node)) continue;
-
+    for (seeded.workspace.graph.flow_root_ids) |flow_root_id| {
+        const index = seeded.workspace.indexOf(flow_root_id) orelse continue;
         const root = components.findConst(index);
+        if (seen[root]) continue;
+        seen[root] = true;
+
         if (components.isPageDependent(root)) {
-            const spacing = style_defaults.styleForNode(state, node).spacing_after;
-            if (axis_state.start) |bottom| {
-                const next_top = bottom - spacing;
-                if (next_top < current_top_value) {
-                    current_source = .{ .node = .{ .node_id = child_id, .anchor = .bottom } };
-                    current_offset = -spacing;
-                    current_top_value = next_top;
-                }
+            const bounds = try componentVerticalBounds(state, &seeded.workspace, &components, root) orelse continue;
+            const next_top = bounds.bottom - bounds.spacing_after;
+            if (next_top < current_top_value) {
+                current_source = .{ .node = .{ .node_id = seeded.workspace.nodeAt(bounds.bottom_index), .anchor = .bottom } };
+                current_offset = -bounds.spacing_after;
+                current_top_value = next_top;
             }
             continue;
         }
-
-        if (seen[root]) continue;
-        seen[root] = true;
 
         const unit = findVerticalComponentUnit(units.items, root) orelse continue;
         try appendVerticalComponentPlacementConstraints(allocator, &constraints, &seeded.workspace, &components, local_tops, root, current_source, current_offset, unit.local_top);
@@ -318,7 +314,8 @@ fn centerStackAvailableBand(
     defer state.allocator.free(seen);
     @memset(seen, false);
 
-    for (workspace.graph.child_ids, 0..) |_, index| {
+    for (workspace.graph.flow_root_ids) |flow_root_id| {
+        const index = workspace.indexOf(flow_root_id) orelse continue;
         const root = components.findConst(index);
         if (seen[root]) continue;
         seen[root] = true;
@@ -340,6 +337,7 @@ fn centerStackAvailableBand(
 const ComponentVerticalBounds = struct {
     bottom: f32,
     top: f32,
+    bottom_index: usize,
     spacing_after: f32,
 };
 
@@ -370,6 +368,7 @@ fn componentVerticalBounds(
     return .{
         .bottom = bottom orelse return null,
         .top = top orelse return null,
+        .bottom_index = bottom_index orelse return null,
         .spacing_after = style_defaults.styleForNode(state, spacing_node).spacing_after,
     };
 }
@@ -393,7 +392,8 @@ fn collectVerticalComponentUnits(
     defer state.allocator.free(seen);
     @memset(seen, false);
 
-    for (workspace.graph.child_ids, 0..) |_, index| {
+    for (workspace.graph.flow_root_ids) |flow_root_id| {
+        const index = workspace.indexOf(flow_root_id) orelse continue;
         const root = components.findConst(index);
         if (seen[root]) continue;
         seen[root] = true;

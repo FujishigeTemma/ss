@@ -23,6 +23,24 @@ pub fn writeContainsField(root: *json.Object, contains_map: *std.AutoHashMap(cor
     try contains.end();
 }
 
+pub fn writePlacementRootsField(
+    root: *json.Object,
+    field_name: []const u8,
+    roots_map: *std.AutoHashMap(core.NodeId, std.ArrayList(core.NodeId)),
+) !void {
+    var placements = try root.arrayField(field_name);
+    var roots_iterator = roots_map.iterator();
+    while (roots_iterator.next()) |entry| {
+        var item = try placements.objectItem();
+        try item.intField("page", entry.key_ptr.*);
+        var roots = try item.arrayField("roots");
+        for (entry.value_ptr.items) |node_id| try roots.intItem(node_id);
+        try roots.end();
+        try item.end();
+    }
+    try placements.end();
+}
+
 pub fn writeConstraintsField(root: *json.Object, constraints: []const core.Constraint) !void {
     try writeNamedConstraintsField(root, "constraints", constraints);
 }
